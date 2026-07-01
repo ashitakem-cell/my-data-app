@@ -1,104 +1,131 @@
 import streamlit as st
 import pandas as pd
 import requests
-import os
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="Expert AI Data Analyst", layout="wide")
-st.title("📊 Expert AI Data Analyst Hub")
+st.set_page_config(page_title="Public AI Data Analyst", layout="wide")
+st.title("📊 Smart Data Analyst Hub")
+st.markdown("Upload your CSV or Excel file below to instantly generate charts and AI-powered executive insights.")
 
-# Sidebar Configuration
-st.sidebar.header("🔑 API & Connection Configuration")
-api_key = st.sidebar.text_input("Google AI Studio API Key", type="password")
+# Retrieve the API key securely from Streamlit Secrets backend
+if "GEMINI_API_KEY" in st.secrets:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+else:
+    st.error("Missing API Key! Please configure 'GEMINI_API_KEY' in your Streamlit Secrets.")
+    st.stop()
+
+# Optional automation webhook config can remain in the sidebar for admin use
 webhook_url = st.sidebar.text_input("Automation Webhook URL (Optional)", type="password")
 
-# File Uploader
-file = st.file_uploader("Upload Dataset (Excel/CSV)", type=["csv", "xlsx"])
+# File Uploader - Simple for any regular user
+file = st.file_uploader("Choose an Excel or CSV file", type=["csv", "xlsx"])
 
-if file and api_key:
+if file:
     try:
-        # Initialize the modern Google GenAI Client
-        client = genai.Client(api_key=api_key)
+        # Initialize GenAI Client
+        client = genai.Client(api_key=API_KEY)
         
-        # 1. Load and Clean Data
+        # Load Data
         if file.name.endswith('.csv'):
             df = pd.read_csv(file)
         else:
             df = pd.read_excel(file)
             
-        # Display Data Preview Metrics
-        st.subheader("📋 Dataset Preview & Context")
+        # Clean up column names to prevent mapping errors
+        df.columns = df.columns.str.strip()
+
+        # ---- SECTION 1: QUICK METRICS ----
+        st.subheader("📋 Dataset Overview")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Rows", df.shape[0])
-        col2.metric("Total Columns", df.shape[1])
-        if 'Sales Amount' in df.columns:
-            col3.metric("Total Revenue", f"₹{df['Sales Amount'].sum():,}")
-            
-        st.dataframe(df.head(10), use_container_width=True)
+        col1.metric("Total Records Listed", df.shape[0])
+        col2.metric("Total Columns Detected", df.shape[1])
         
-        # 2. Expert Analysis Core
-        if st.button("🚀 Run Expert AI Analysis", type="primary"):
-            with st.spinner("Analyzing data vectors, calculating KPIs, and generating summary..."):
+        # Check if financial columns exist to display a revenue metric
+        sales_col = next((c for c in df.columns if 'sales' in c.lower() or 'amount' in c.lower()), None)
+        if sales_col:
+            col3.metric("Total Volume / Revenue", f"₹{df[sales_col].sum():,}")
+
+        st.dataframe(df.head(5), use_container_width=True)
+
+        # ---- SECTION 2: AUTOMATIC CHARTS ----
+        st.markdown("---")
+        st.subheader("📊 Visual Performance Charts")
+        
+        # Identify categorical vs numerical columns dynamically
+        date_col = next((c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()), None)
+        cat_col = next((c for c in df.columns if 'name' in c.lower() or 'category' in c.lower() or 'product' in c.lower()), None)
+        num_col = sales_col if sales_col else next((c for c in df.columns if df[c].dtype in ['int64', 'float64']), None)
+
+        chart_col1, chart_col2 = st.columns(2)
+
+        with chart_col1:
+            st.markdown("**Breakdown Breakdown Chart**")
+            if cat_col and num_col:
+                # Group data to clean up layout
+                chart_data = df.groupby(cat_col)[num_col].sum().sort_values(ascending=False).head(10)
+                st.bar_chart(chart_data)
+            else:
+                st.info("Upload a dataset with clear categories to render bar breakdowns.")
+
+        with chart_col2:
+            st.markdown("**Timeline Cumulative View**")
+            if date_col and num_col:
+                try:
+                    df_time = df.copy()
+                    df_time[date_col] = pd.to_datetime(df_time[date_col])
+                    time_data = df_time.groupby(date_col)[num_col].sum()
+                    st.line_chart(time_data)
+                except:
+                    st.info("Could not convert date column automatically for timeline graph.")
+            elif num_col:
+                st.line_chart(df[num_col].head(50))
+            else:
+                st.info("Provide sequential numerical parameters to render distribution lines.")
+
+        # ---- SECTION 3: EXPERT AI ANALYSIS ----
+        st.markdown("---")
+        if st.button("🚀 Run AI Analysis Report", type="primary"):
+            with st.spinner("Analyzing data parameters and generating executive insights..."):
                 
-                data_string = df.to_string(index=False)
+                data_snapshot = df.to_string(index=False)
                 
-                # System instructions force Gemini to follow a strict analytical layout
                 system_instruction = """
-                You are a Senior Executive Data Analyst. Your analysis must be structured, 
-                professional, and deeply insightful. Avoid generic descriptions. Always include:
-                1. Executive Summary (High-level takeaways)
-                2. Core Key Performance Indicators (KPIs) derived from the numbers
-                3. Distinct Trends & Outliers discovered in categories or timelines
-                4. Actionable Data-Driven Recommendations for leadership
+                You are an elite Senior Data Analyst. Write a beautifully structured executive report.
+                Use bullet points, bold headers, and structured lists. Provide:
+                1. Executive Summary
+                2. Key Performance Indicators calculated from the data table
+                3. Clear trends, peaks, or drops observed
+                4. Strategic, actionable advice for improvement
                 """
                 
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
-                    contents=f"Analyze this sales performance dataset:\n\n{data_string}",
+                    contents=f"Analyze this dataset performance tables:\n\n{data_snapshot}",
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
-                        temperature=0.3 # Lower temperature ensures focused, fact-based financial insights
+                        temperature=0.2
                     )
                 )
                 
-                # Store report in session state for later steps
-                st.session_state['latest_report'] = response.text
-                
-                st.success("Analysis Complete!")
-                st.markdown("---")
-                st.subheader("📈 Executive Analysis Report")
+                st.session_state['public_report'] = response.text
+                st.success("Report Compiled Successfully!")
                 st.markdown(response.text)
-                
-        # 3. Integration Pipelines (Automations & Database Triggers)
-        if 'latest_report' in st.session_state:
+
+        # ---- SECTION 4: DOWNSTREAM PIPELINE ----
+        if 'public_report' in st.session_state and webhook_url:
             st.markdown("---")
-            st.subheader("🔗 Data Pipeline & Report Delivery")
-            
-            c1, c2 = st.columns(2)
-            
-            with c1:
-                st.info("💡 **Sync to Supabase Database**\nSimulating live database streaming. Ensure your backend handles row-by-row updates.")
-                if st.button("Sync Raw Records to Supabase"):
-                    # Here you can map your actual Supabase Client ingestion loop
-                    st.success(f"Successfully processed and prepared {len(df)} records for table: 'sales_data'")
-                    
-            with c2:
-                st.info("✉️ **Trigger Automation Workflow**\nSends the generated AI insights report directly through your active webhook integration.")
-                if st.button("Send Report to Webhook/Email"):
-                    if webhook_url:
-                        payload = {
-                            "status": "success",
-                            "record_count": len(df),
-                            "report_content": st.session_state['latest_report']
-                        }
-                        res = requests.post(webhook_url, json=payload)
-                        if res.status_code == 200 or res.status_code == 201:
-                            st.success("Pipeline executed! Report forwarded to Zapier / Mail workflow.")
-                        else:
-                            st.error(f"Failed to trigger endpoint. Status code: {res.status_code}")
-                    else:
-                        st.warning("Please provide a valid Webhook URL in the sidebar first.")
-                        
+            if st.button("📨 Dispatch Report to Automation Pipeline"):
+                payload = {
+                    "status": "completed",
+                    "rows": len(df),
+                    "summary": st.session_state['public_report']
+                }
+                res = requests.post(webhook_url, json=payload)
+                if res.status_code in [200, 201]:
+                    st.success("Sent! Your integrated workflow has picked up the document.")
+                else:
+                    st.error("Workflow link returned an error code.")
+
     except Exception as e:
-        st.error(f"Execution Error: {e}")
+        st.error(f"Analysis Engine Error: {e}")
