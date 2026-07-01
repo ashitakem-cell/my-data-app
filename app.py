@@ -27,7 +27,7 @@ st.markdown("""
         font-weight: bold;
     }
     </style>
-""", unsafe_unsafe_with_error_handling=True)
+""", unsafe_allow_html=True)
 
 st.title("🤖 Elite Conversational AI Data Analyst")
 st.markdown("Upload any enterprise CSV or Excel sheet to unlock an interactive executive dashboard and chat directly with your data.")
@@ -93,7 +93,7 @@ if file:
             else:
                 st.markdown('<div class="metric-card"><div class="metric-title">NET PROFIT</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
 
-        # Data preview snippet with fixed responsive width
+        # Data preview snippet using modern responsive sizing
         st.markdown("### Data Preview Snapshot")
         st.dataframe(df.head(5), width='stretch')
 
@@ -102,7 +102,7 @@ if file:
         st.subheader("📊 Visual Analytics Trends")
         chart_c1, chart_c2 = st.columns(2)
 
-        cat_label = next((c for c in df.columns if 'name' in c.lower() or 'category' in c.lower() or 'product' in c.lower()), df.columns[1])
+        cat_label = next((c for c in df.columns if 'name' in c.lower() or 'category' in c.lower() or 'product' in c.lower()), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         num_label = sales_col if sales_col else next((c for c in df.select_dtypes(include=['number']).columns), None)
 
         with chart_c1:
