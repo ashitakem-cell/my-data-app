@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
-# Page configuration - Premium Analytics Look
+# Page configuration - Premium Corporate Theme
 st.set_page_config(
     page_title="Enterprise AI Insights Studio",
     page_icon="📊",
@@ -10,16 +10,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling Matrix (Fixing Red Borders, Alignment & Glowing UI)
+# Custom Styling Matrix (Premium Interface Setup)
 st.markdown("""
     <style>
-    /* Main App Dark Theme Background */
     .stApp {
         background-color: #0d1117;
         color: #e6edf3;
     }
-    
-    /* Sleek Linear Gradient Title */
     .main-title {
         font-size: 2.8rem;
         font-weight: 800;
@@ -28,8 +25,6 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.2rem;
     }
-    
-    /* Elegant Symmetric KPI Cards */
     .metric-card {
         background: linear-gradient(145deg, #161b22 0%, #0d1117 100%);
         padding: 1.6rem;
@@ -45,8 +40,6 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(88, 166, 255, 0.15);
         transform: translateY(-3px);
     }
-    
-    /* Section Separation Headers */
     .section-header {
         font-size: 1.5rem;
         font-weight: 700;
@@ -56,8 +49,7 @@ st.markdown("""
         margin-top: 2.5rem;
         margin-bottom: 1.2rem;
     }
-    
-    /* Input Box Styles Overrides - Strictly REMOVING all strange red outlines */
+    /* Strictly REMOVING bizarre red outlines or highlights globally */
     div[data-testid="stChatInputContainer"], div[data-testid="stTextInput"] > div {
         border: 1px solid #30363d !important;
         background-color: #161b22 !important;
@@ -68,86 +60,69 @@ st.markdown("""
         border-color: #58a6ff !important;
         box-shadow: 0 0 0 1px #58a6ff !important;
     }
-    
-    /* Button Custom Glow Styling */
-    .stButton>button {
-        background: linear-gradient(135deg, #238636 0%, #2ea043 100%) !important;
-        color: white !important;
-        border: none !important;
-        padding: 0.6rem 1.5rem !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# 🔒 ROBUST BACKEND CREDENTIALS MANAGEMENT
+# 🔒 SECURE BACKEND CREDENTIALS MANAGEMENT
 if "GEMINI_API_KEY" in st.secrets:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 elif "google_api_key" in st.secrets: 
     API_KEY = st.secrets["google_api_key"]
 else:
-    st.error("🔒 Configuration Error: Please make sure 'GEMINI_API_KEY' is added to your Streamlit Cloud Secrets dashboard.")
+    st.error("🔒 Configuration Error: Please ensure 'GEMINI_API_KEY' is active in Streamlit Cloud Secrets.")
     st.stop()
 
-# Configure Gemini core library securely
 genai.configure(api_key=API_KEY)
 
-# 🛠️ FAILS-AFE MULTI-STRING BACKEND INITIALIZATION (Resolves the 404 Error permanently)
+# 🛠️ MULTI-STRING AUTOMATED BACKEND INITIALIZATION
 model = None
 model_names_to_try = ['models/gemini-1.5-flash', 'gemini-1.5-flash', 'models/gemini-pro', 'gemini-pro']
 
 for name in model_names_to_try:
     try:
         model = genai.GenerativeModel(name)
-        # Test connection instantly to confirm validity
         model.generate_content("Ping")
         break
     except Exception:
         continue
 
 if model is None:
-    st.error("🚨 API Engine Resolution Failed. Please check if your Gemini API key has proper active permissions in Google AI Studio.")
+    st.error("🚨 API Engine Resolution Failed. Check your Gemini API Key parameters inside Google AI Studio.")
     st.stop()
 
-# Clean Managed Sidebar (No API Key inputs or clunky fields)
+# Clean Sidebar Dashboard Control
 with st.sidebar:
     st.markdown("<h2 style='color:#fff; font-size: 1.6rem;'>⚙️ Control Center</h2>", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("### 📊 Engine Infrastructure")
-    st.success("Core Connection: Error-Free")
+    st.success("Super-Intelligence Matrix: Loaded")
     st.markdown("---")
-    st.markdown("💡 **LinkedIn Deployment Tip:** Since there are zero bugs now, your app is ready for wide public testing. Post the link and watch engagement grow!")
+    st.markdown("💡 **Tip:** Ask the chatbot specific queries like 'Which row has highest sales?' to see its contextual brain power.")
 
-# Main App Header Layout
+# App Header
 st.markdown('<h1 class="main-title">📊 Enterprise AI Insights Studio</h1>', unsafe_allow_html=True)
-st.markdown('<p style="color: #8b949e; font-size: 1.1rem; margin-bottom: 2rem;">A fail-safe data intelligence engine built for high-performance executive analysis and matrix interactions.</p>', unsafe_allow_html=True)
+st.markdown('<p style="color: #8b949e; font-size: 1.1rem; margin-bottom: 2rem;">A fail-safe data intelligence engine built for high-performance executive analysis.</p>', unsafe_allow_html=True)
 
-# File Uploader Target
 st.markdown('<div class="section-header">📂 Ingest Spreadsheet Matrix</div>', unsafe_allow_html=True)
 uploaded_file = st.file_uploader("", type=["csv", "xlsx"])
 
 if uploaded_file:
     try:
-        # Step 1: Bulletproof Parsing Stream
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
             
-        # Clear header spaces to avoid key errors down the line
         df.columns = df.columns.str.strip()
         
-        # Step 2: Extract data types variables dynamically
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         text_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
         
-        # Smart column tracking for executive dashboards
         sales_col = next((c for c in df.columns if 'sales' in c.lower() or 'amount' in c.lower() or 'price' in c.lower()), None)
         profit_col = next((c for c in df.columns if 'profit' in c.lower() or 'gain' in c.lower()), None)
         product_col = next((c for c in df.columns if 'product' in c.lower() or 'category' in c.lower() or 'item' in c.lower()), None)
         
-        # --- DYNAMIC STRUCTURAL KPI GRID ---
+        # --- EXEC EXECUTIVE KPI GRID ---
         st.markdown('<div class="section-header">📋 Core Performance Indicators</div>', unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
@@ -158,7 +133,7 @@ if uploaded_file:
         
         with col3:
             if sales_col:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">GROSS VOLUME</p><h2 style="margin:0.4rem 0 0 0;color:#34d399;font-size:1.6rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">₹{df[sales_col].sum():,.2f}</h2></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">GROSS VOLUME</p><h2 style="margin:0.4rem 0 0 0;color:#34d399;font-size:1.6rem;">₹{df[sales_col].sum():,.2f}</h2></div>', unsafe_allow_html=True)
             elif len(numeric_cols) > 0:
                 st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">AGGREGATE ({numeric_cols[0]})</p><h2 style="margin:0.4rem 0 0 0;color:#34d399;font-size:1.6rem;">{df[numeric_cols[0]].sum():,}</h2></div>', unsafe_allow_html=True)
             else:
@@ -169,16 +144,13 @@ if uploaded_file:
                 st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">OPERATIONAL PROFIT</p><h2 style="margin:0.4rem 0 0 0;color:#ff7b72;font-size:1.6rem;">₹{df[profit_col].sum():,.2f}</h2></div>', unsafe_allow_html=True)
             elif product_col and not df[product_col].empty:
                 st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">DOMINANT CLASS</p><h2 style="margin:0.4rem 0 0 0;color:#ff7b72;font-size:1.4rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">{df[product_col].mode()[0]}</h2></div>', unsafe_allow_html=True)
-            elif len(text_cols) > 0 and not df[text_cols[0]].empty:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">TOP MODE ({text_cols[0]})</p><h2 style="margin:0.4rem 0 0 0;color:#ff7b72;font-size:1.4rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">{df[text_cols[0]].mode()[0]}</h2></div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">OPERATIONAL INSIGHT</p><h2 style="margin:0.4rem 0 0 0;color:#8b949e;font-size:1.6rem;">N/A</h2></div>', unsafe_allow_html=True)
 
-        # Impeccable Raw Preview
         st.markdown("<h4 style='margin-top: 1.5rem; color:#f0f6fc;'>Ingested Spreadsheet Grid Snippet</h4>", unsafe_allow_html=True)
         st.dataframe(df.head(6), use_container_width=True)
         
-        # --- AUTOMATIC CHART VISUALIZATIONS GENERATOR (FALLBACK-PROTECTED) ---
+        # --- AUTOMATIC CHART VISUALIZATIONS GENERATOR ---
         st.markdown('<div class="section-header">📊 Automatic Fail-Safe Data Trends</div>', unsafe_allow_html=True)
         chart_c1, chart_c2 = st.columns(2)
         
@@ -202,7 +174,7 @@ if uploaded_file:
             else:
                 st.info("Continuous quantitative values missing. Trendline generation bypassed safely.")
 
-        # --- EXECUTIVE STRATEGIC BULLET REPORT ---
+        # --- EXECUTIVE AI SUMMARY REPORT ---
         st.markdown('<div class="section-header">🧠 Automated AI Insight Report</div>', unsafe_allow_html=True)
         if "auto_summary" not in st.session_state:
             with st.spinner("AI Engine auditing matrix patterns safely..."):
@@ -215,55 +187,61 @@ if uploaded_file:
                     )
                     response = model.generate_content(summary_prompt)
                     st.session_state.auto_summary = response.text
-                except Exception as ex_sum:
-                    st.session_state.auto_summary = f"Automated reporting infrastructure backup active. Matrix metadata parsed: {len(df.columns)} active variables discovered."
+                except Exception:
+                    st.session_state.auto_summary = f"Automated reporting backup active. Matrix metadata parsed: {len(df.columns)} active variables discovered."
         
         st.markdown(st.session_state.auto_summary)
 
-        # --- SMART CHAT EMBED ROOM (NO HALLUCINATIONS OR ERROR CRASHES) ---
+        # --- 💬 SUPER-INTELLIGENT DYNAMIC CONVERSATION AGENT ---
         st.markdown('<div class="section-header">💬 Chat Directly With Your Data Studio</div>', unsafe_allow_html=True)
-        st.markdown("<p style='color:#8b949e; font-size:0.95rem; margin-bottom:1rem;'>Have deeper questions or edge-case confusion regarding this dataset? Enter your prompt below for instant real-time AI resolution.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#8b949e; font-size:0.95rem; margin-bottom:1rem;'>Have questions? Our super intelligent data scientist chatbot understands anything you say about this sheet.</p>", unsafe_allow_html=True)
         
         if "messages" not in st.session_state:
             st.session_state.messages = []
             
-        # Display past logs cleanly
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
                 
-        if user_query := st.chat_input("Ask a follow-up analytics question to clarify any confusion..."):
+        if user_query := st.chat_input("Ask any analytical question or ask to explain rows..."):
             with st.chat_message("user"):
                 st.markdown(user_query)
             st.session_state.messages.append({"role": "user", "content": user_query})
             
-            # Pack comprehensive data frame knowledge so the chatbot is fully self-aware
-            data_summary = (
-                f"Dataset Summary: {df.shape[0]} total rows and {df.shape[1]} columns. "
-                f"Available Headers: {', '.join(df.columns.tolist())}.\n"
-                f"Data Preview Snippet Context Matrix:\n{df.head(10).to_string()}"
-            )
+            # Smart context compression so the chat engine knows exactly what the spreadsheet holds
+            summary_stats = df.describe(include='all').to_string()
+            data_matrix_snapshot = df.head(25).to_string() # Sending top rows for direct pattern reading
             
-            prompt = (
-                f"You are an elite corporate Data Analyst agent. Help the user clarify any doubts about the uploaded data. "
-                f"If the user asks questions that are entirely out-of-context or unrelated to data analysis or the dataset, "
-                f"politely guide them back to the dashboard context with exceptional corporate etiquette.\n\n"
-                f"Dataset Context Matrix:\n{data_summary}\n\nUser Question: {user_query}"
+            system_context_prompt = (
+                f"SYSTEM INSTRUCTIONS:\n"
+                f"You are a highly capable, human-like Senior Data Scientist and Lead Business Intelligence Consultant. "
+                f"Your goal is to perfectly interpret user messages and provide answers like a smart human analyst. "
+                f"Do not use dry, robotic boilerplate language or repeat static generic sentences. "
+                f"Analyze the user's question explicitly using the dataset context provided below.\n\n"
+                f"DATASET MATRIX PROFILE:\n"
+                f"- Dimensions: {df.shape[0]} rows, {df.shape[1]} columns.\n"
+                f"- Column Names: {', '.join(df.columns.tolist())}\n"
+                f"- Statistical Properties Summary:\n{summary_stats}\n"
+                f"- Target Snapshot Rows (Top Sample Data):\n{data_matrix_snapshot}\n\n"
+                f"User Request: '{user_query}'\n\n"
+                f"Response (Be clear, concise, use clean formatting, state figures if asked, act professional):"
             )
             
             with st.chat_message("assistant"):
-                with st.spinner("AI evaluating matrix arrays..."):
+                with st.spinner("AI evaluating query patterns..."):
                     try:
-                        chat_response = model.generate_content(prompt)
-                        st.markdown(chat_response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": chat_response.text})
-                    except Exception as chat_err:
-                        fallback_chat = "I have thoroughly evaluated the active metrics. Please rephrase your query slightly so I can isolate that specific trend row for you."
-                        st.markdown(fallback_chat)
-                        st.session_state.messages.append({"role": "assistant", "content": fallback_chat})
+                        chat_response = model.generate_content(system_context_prompt)
+                        clean_reply = chat_response.text
+                        st.markdown(clean_reply)
+                        st.session_state.messages.append({"role": "assistant", "content": clean_reply})
+                    except Exception as e:
+                        # Backup dynamic processing row logic if API limits hit unexpectedly
+                        backup_reply = f"I've evaluated the layout parameters. Your dataset contains {df.shape[0]} tracking entities with explicit variables across {df.shape[1]} columns. Please target a specific structural trend column name like {df.columns[0]}!"
+                        st.markdown(backup_reply)
+                        st.session_state.messages.append({"role": "assistant", "content": backup_reply})
             
     except Exception as e:
-        st.error(f"Ingestion Protection Layer: Something unexpected occurred while reading the file: {str(e)}")
+        st.error(f"Ingestion Error Shield: {str(e)}")
 
 else:
-    st.markdown("<div style='text-align: center; margin-top: 4rem; color: #8b949e;'><h3>📥 Core pipeline standby: Awaiting corporate matrix upload to populate live cells...</h3></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 4rem; color: #8b949e;'><h3>📥 Core pipeline standby: Awaiting dataset upload...</h3></div>", unsafe_allow_html=True)
