@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
+import json
+import re
 from google import genai
 from google.genai import types
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Elite AI Data Analyst", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Elite AI Data Analyst Pro", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for Premium Executive Look
 st.markdown("""
@@ -29,8 +31,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 Elite Conversational AI Data Analyst")
-st.markdown("Upload any enterprise CSV or Excel sheet to unlock an interactive executive dashboard and chat directly with your data.")
+st.title("🤖 Elite Conversational AI Data Analyst Pro")
+st.markdown("Upload any enterprise CSV or Excel sheet to unlock an interactive executive dashboard and chat directly with your data (including dynamic chart rendering!).")
 
 # --- 2. SECURE BACKGROUND API KEY CONFIGURATION ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -127,10 +129,10 @@ if file:
                 st.markdown("**Data Distribution Flow**")
                 st.line_chart(df[num_label].head(50))
 
-        # --- 6. ADVANCED CONVERSATIONAL CHAT (ASK AI) ---
+        # --- 6. ADVANCED CONVERSATIONAL CHAT (ASK AI & EXECUTE CHARTS) ---
         st.markdown("---")
         st.subheader("💬 Ask AI Anything About This Data")
-        st.markdown("Type any conversational query below (e.g., *'Which client brought in the highest margins?'* or *'Summarize our core risk factors'*).")
+        st.markdown("Type any conversational query below. **You can explicitly request charts!** (e.g., *'Show me a pie chart of sales by product'*).")
 
         # Session state management for Chat History
         if "chat_history" not in st.session_state:
@@ -139,22 +141,50 @@ if file:
         # Display older messages cleanly
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+                st.markdown(msg["text_content"])
+                if "chart_data" in msg and msg["chart_data"]:
+                    c_type = msg["chart_type"]
+                    c_df = pd.DataFrame(msg["chart_data"])
+                    if not c_df.empty:
+                        # Re-render charts from logs cleanly
+                        x_col, y_col = c_df.columns[0], c_df.columns[1]
+                        chart_render_data = c_df.set_index(x_col)
+                        if c_type == "bar":
+                            st.bar_chart(chart_render_data)
+                        elif c_type == "line":
+                            st.line_chart(chart_render_data)
+                        elif c_type == "pie":
+                            # Streamlit standard lacks native st.pie_chart, so we fallback beautifully to a clear bar_chart 
+                            # or use an alternate clean distribution rendering
+                            st.markdown(f"📊 *Visualizing item share distribution for {x_col}:*")
+                            st.bar_chart(chart_render_data)
 
         # Accept fresh question input
-        user_query = st.chat_input("Ask a strategic analytics question...")
+        user_query = st.chat_input("Ask a strategic analytics question or request a visualization...")
         
         if user_query:
             with st.chat_message("user"):
                 st.markdown(user_query)
-            st.session_state.chat_history.append({"role": "user", "content": user_query})
 
-            # Format full context payload for Gemini
+            # Format full system instruction setup allowing chart JSON metadata injection
             data_context = df.to_string(index=False)
-            full_prompt = (
-                f"You are a Senior Strategic Data Intelligence Agent. "
-                f"Answer the user query precisely based on this active dataset file context:\n\n"
-                f"{data_context}\n\nUser Question: {user_query}"
+            available_columns = list(df.columns)
+            
+            system_instruction = (
+                f"You are a Senior Strategic Data Intelligence Agent. Your task is to answer user analytics queries precisely "
+                f"based on the provided dataset structure. Available columns in the file: {available_columns}\n\n"
+                f"CRITICAL ASSIGNMENT FOR CHARTS:\n"
+                f"If the user explicitly asks to plot, visualize, or create a chart (like a bar chart, line chart, or pie chart), "
+                f"you MUST calculate the aggregated data requested and append a clean JSON block at the very end of your response text.\n"
+                f"Do not write regular markdown charts. Always output the JSON structure exactly like this enclosed in code delimiters:\n"
+                f"```json\n"
+                f"{{\n"
+                f"  \"render_chart\": true,\n"
+                f"  \"chart_type\": \"bar\", // can be 'bar', 'line', or 'pie'\n"
+                f"  \"data\": [{{\"Column1\": \"LabelA\", \"Column2\": 120}}, {{\"Column1\": \"LabelB\", \"Column2\": 340}}]\n"
+                f"}}\n"
+                f"```\n"
+                f"If the user does not request a visual representation, do not include the JSON payload block."
             )
 
             with st.chat_message("assistant"):
@@ -162,11 +192,62 @@ if file:
                     try:
                         response = client.models.generate_content(
                             model='gemini-2.5-flash',
-                            contents=full_prompt,
-                            config=types.GenerateContentConfig(temperature=0.2)
+                            contents=f"Dataset:\n{data_context}\n\nUser Question: {user_query}",
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_instruction,
+                                temperature=0.2
+                            )
                         )
-                        st.markdown(response.text)
-                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                        
+                        raw_text = response.text
+                        
+                        # Parse JSON instructions if injected by the AI model
+                        json_match = re.search(r'```json\s*(.*?)\s*```', raw_text, re.DOTALL)
+                        
+                        chart_data_extracted = None
+                        chart_type_extracted = None
+                        clean_display_text = raw_text
+                        
+                        if json_match:
+                            try:
+                                json_payload = json.loads(json_match.group(1))
+                                if json_payload.get("render_chart"):
+                                    chart_data_extracted = json_payload.get("data")
+                                    chart_type_extracted = json_payload.get("chart_type", "bar")
+                                    # Clean raw JSON blocks out from natural reader UI text
+                                    clean_display_text = re.sub(r'```json\s*.*?\s*```', '', raw_text, flags=re.DOTALL).strip()
+                            except:
+                                pass # Fault tolerance for corrupted token parsing
+
+                        # Render user display texts
+                        st.markdown(clean_display_text)
+                        
+                        # Live execution of the requested charts dynamically right inside chat channel!
+                        if chart_data_extracted:
+                            chart_df = pd.DataFrame(chart_data_extracted)
+                            if not chart_df.empty:
+                                x_axis, y_axis = chart_df.columns[0], chart_df.columns[1]
+                                render_df = chart_df.set_index(x_axis)
+                                if chart_type_extracted == "bar":
+                                    st.bar_chart(render_df)
+                                elif chart_type_extracted == "line":
+                                    st.line_chart(render_df)
+                                else:
+                                    st.markdown(f"📊 *Visualizing distribution share breakdown:*")
+                                    st.bar_chart(render_df)
+
+                        # Save clean states into history pipelines
+                        st.session_state.chat_history.append({
+                            "role": "user", 
+                            "text_content": user_query
+                        })
+                        st.session_state.chat_history.append({
+                            "role": "assistant", 
+                            "text_content": clean_display_text,
+                            "chart_data": chart_data_extracted,
+                            "chart_type": chart_type_extracted
+                        })
+                        
                     except Exception as chat_err:
                         st.error(f"Chat Engine Error: {chat_err}")
 
