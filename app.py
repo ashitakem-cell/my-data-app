@@ -1,247 +1,114 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
+import requests
+from google import genai
+from google.genai import types
 
-# Page configuration - Premium Corporate Theme
-st.set_page_config(
-    page_title="Enterprise AI Insights Studio",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Expert AI Data Analyst", layout="wide")
+st.title("📊 Public AI Data Analyst Hub")
+st.markdown("Upload any Excel or CSV file to immediately get key metric summaries, performance charts, and expert AI analysis.")
 
-# Custom Styling Matrix (Premium Interface Setup)
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #0d1117;
-        color: #e6edf3;
-    }
-    .main-title {
-        font-size: 2.8rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #58a6ff 0%, #f2ea79 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.2rem;
-    }
-    .metric-card {
-        background: linear-gradient(145deg, #161b22 0%, #0d1117 100%);
-        padding: 1.6rem;
-        border-radius: 14px;
-        border: 1px solid #30363d;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-        margin-bottom: 1rem;
-        text-align: center;
-        transition: all 0.3s ease;
-    }
-    .metric-card:hover {
-        border-color: #58a6ff;
-        box-shadow: 0 10px 30px rgba(88, 166, 255, 0.15);
-        transform: translateY(-3px);
-    }
-    .section-header {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #ffffff;
-        border-bottom: 1px solid #30363d;
-        padding-bottom: 0.5rem;
-        margin-top: 2.5rem;
-        margin-bottom: 1.2rem;
-    }
-    /* Strictly REMOVING bizarre red outlines or highlights globally */
-    div[data-testid="stChatInputContainer"], div[data-testid="stTextInput"] > div {
-        border: 1px solid #30363d !important;
-        background-color: #161b22 !important;
-        border-radius: 10px !important;
-        box-shadow: none !important;
-    }
-    div[data-testid="stChatInputContainer"]:focus-within, div[data-testid="stTextInput"] > div:focus-within {
-        border-color: #58a6ff !important;
-        box-shadow: 0 0 0 1px #58a6ff !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# 🔒 SECURE BACKEND CREDENTIALS MANAGEMENT
+# --- SECURE BACKGROUND API KEY CONFIGURATION ---
 if "GEMINI_API_KEY" in st.secrets:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 elif "google_api_key" in st.secrets: 
     API_KEY = st.secrets["google_api_key"]
 else:
-    st.error("🔒 Configuration Error: Please ensure 'GEMINI_API_KEY' is active in Streamlit Cloud Secrets.")
+    st.error("🔒 API Configuration Needed: Please set up 'GEMINI_API_KEY' in your Streamlit Cloud Secrets dashboard.")
     st.stop()
 
-genai.configure(api_key=API_KEY)
+webhook_url = st.sidebar.text_input("Automation Webhook URL (Optional)", type="password")
 
-# 🛠️ MULTI-STRING AUTOMATED BACKEND INITIALIZATION
-model = None
-model_names_to_try = ['models/gemini-1.5-flash', 'gemini-1.5-flash', 'models/gemini-pro', 'gemini-pro']
+file = st.file_uploader("Upload Data Sheet", type=["csv", "xlsx"])
 
-for name in model_names_to_try:
+if file:
     try:
-        model = genai.GenerativeModel(name)
-        model.generate_content("Ping")
-        break
-    except Exception:
-        continue
-
-if model is None:
-    st.error("🚨 API Engine Resolution Failed. Check your Gemini API Key parameters inside Google AI Studio.")
-    st.stop()
-
-# Clean Sidebar Dashboard Control
-with st.sidebar:
-    st.markdown("<h2 style='color:#fff; font-size: 1.6rem;'>⚙️ Control Center</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("### 📊 Engine Infrastructure")
-    st.success("Super-Intelligence Matrix: Loaded")
-    st.markdown("---")
-    st.markdown("💡 **Tip:** Ask the chatbot specific queries like 'Which row has highest sales?' to see its contextual brain power.")
-
-# App Header
-st.markdown('<h1 class="main-title">📊 Enterprise AI Insights Studio</h1>', unsafe_allow_html=True)
-st.markdown('<p style="color: #8b949e; font-size: 1.1rem; margin-bottom: 2rem;">A fail-safe data intelligence engine built for high-performance executive analysis.</p>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-header">📂 Ingest Spreadsheet Matrix</div>', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("", type=["csv", "xlsx"])
-
-if uploaded_file:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
+        client = genai.Client(api_key=API_KEY)
+        
+        if file.name.endswith('.csv'):
+            df = pd.read_csv(file)
         else:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(file)
             
         df.columns = df.columns.str.strip()
-        
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-        text_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        # ---- 1. CORE DATASET METRICS ----
+        st.subheader("📋 Dataset Overview")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Rows", df.shape[0])
+        col2.metric("Total Columns", df.shape[1])
         
         sales_col = next((c for c in df.columns if 'sales' in c.lower() or 'amount' in c.lower() or 'price' in c.lower()), None)
-        profit_col = next((c for c in df.columns if 'profit' in c.lower() or 'gain' in c.lower()), None)
-        product_col = next((c for c in df.columns if 'product' in c.lower() or 'category' in c.lower() or 'item' in c.lower()), None)
-        
-        # --- EXEC EXECUTIVE KPI GRID ---
-        st.markdown('<div class="section-header">📋 Core Performance Indicators</div>', unsafe_allow_html=True)
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">TOTAL RECORDS</p><h2 style="margin:0.4rem 0 0 0;color:#58a6ff;font-size:1.8rem;">{df.shape[0]:,}</h2></div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">DIMENSIONALITY</p><h2 style="margin:0.4rem 0 0 0;color:#58a6ff;font-size:1.8rem;">{df.shape[1]} Columns</h2></div>', unsafe_allow_html=True)
-        
-        with col3:
-            if sales_col:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">GROSS VOLUME</p><h2 style="margin:0.4rem 0 0 0;color:#34d399;font-size:1.6rem;">₹{df[sales_col].sum():,.2f}</h2></div>', unsafe_allow_html=True)
-            elif len(numeric_cols) > 0:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">AGGREGATE ({numeric_cols[0]})</p><h2 style="margin:0.4rem 0 0 0;color:#34d399;font-size:1.6rem;">{df[numeric_cols[0]].sum():,}</h2></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">GROSS VOLUME</p><h2 style="margin:0.4rem 0 0 0;color:#8b949e;font-size:1.6rem;">N/A</h2></div>', unsafe_allow_html=True)
-                
-        with col4:
-            if profit_col:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">OPERATIONAL PROFIT</p><h2 style="margin:0.4rem 0 0 0;color:#ff7b72;font-size:1.6rem;">₹{df[profit_col].sum():,.2f}</h2></div>', unsafe_allow_html=True)
-            elif product_col and not df[product_col].empty:
-                st.markdown(f'<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">DOMINANT CLASS</p><h2 style="margin:0.4rem 0 0 0;color:#ff7b72;font-size:1.4rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;">{df[product_col].mode()[0]}</h2></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="metric-card"><p style="margin:0;color:#8b949e;font-size:0.9rem;font-weight:600;">OPERATIONAL INSIGHT</p><h2 style="margin:0.4rem 0 0 0;color:#8b949e;font-size:1.6rem;">N/A</h2></div>', unsafe_allow_html=True)
+        if sales_col:
+            col3.metric("Total Volume Gross", f"₹{df[sales_col].sum():,}")
+        else:
+            col3.metric("Numeric Features", len(df.select_dtypes(include=['int64', 'float64']).columns))
+            
+        # Updated to fix the warning notice in logs
+        st.dataframe(df.head(10), width='stretch')
 
-        st.markdown("<h4 style='margin-top: 1.5rem; color:#f0f6fc;'>Ingested Spreadsheet Grid Snippet</h4>", unsafe_allow_html=True)
-        st.dataframe(df.head(6), use_container_width=True)
+        # ---- 2. DYNAMIC AUTOMATIC CHARTS ----
+        st.markdown("---")
+        st.subheader("📊 Interactive Performance Visualizations")
         
-        # --- AUTOMATIC CHART VISUALIZATIONS GENERATOR ---
-        st.markdown('<div class="section-header">📊 Automatic Fail-Safe Data Trends</div>', unsafe_allow_html=True)
+        cat_col = next((c for c in df.columns if 'name' in c.lower() or 'category' in c.lower() or 'product' in c.lower() or 'item' in c.lower()), None)
+        num_col = sales_col if sales_col else next((c for c in df.columns if df[c].dtype in ['int64', 'float64']), None)
+        date_col = next((c for c in df.columns if 'date' in c.lower() or 'time' in c.lower() or 'year' in c.lower()), None)
+
         chart_c1, chart_c2 = st.columns(2)
-        
-        cat_target = product_col if product_col else (text_cols[0] if len(text_cols) > 0 else df.columns[0])
-        num_target = sales_col if sales_col else (numeric_cols[0] if len(numeric_cols) > 0 else None)
-        
+
         with chart_c1:
-            if num_target and cat_target:
-                st.markdown(f"**📈 Categorical Density Breakdown by {cat_target}**")
-                chart_data = df.groupby(cat_target)[num_target].sum().sort_values(ascending=False).head(10)
-                st.bar_chart(chart_data)
+            st.markdown("### 📈 Distribution / Category Breakdown")
+            if cat_col and num_col:
+                breakdown_data = df.groupby(cat_col)[num_col].sum().sort_values(ascending=False).head(10)
+                st.bar_chart(breakdown_data)
             else:
-                st.markdown(f"**📈 Structural Entity Frequency Count ({cat_target})**")
-                chart_data = df[cat_target].value_counts().head(10)
-                st.bar_chart(chart_data)
-                
+                st.info("Provide categorical label columns to render item breakdowns.")
+
         with chart_c2:
-            if len(numeric_cols) > 0:
-                st.markdown(f"**📉 Sequential Value Flow Profile ({numeric_cols[0]})**")
-                st.line_chart(df[numeric_cols[0]].head(60))
-            else:
-                st.info("Continuous quantitative values missing. Trendline generation bypassed safely.")
-
-        # --- EXECUTIVE AI SUMMARY REPORT ---
-        st.markdown('<div class="section-header">🧠 Automated AI Insight Report</div>', unsafe_allow_html=True)
-        if "auto_summary" not in st.session_state:
-            with st.spinner("AI Engine auditing matrix patterns safely..."):
+            st.markdown("### ⏱️ Sequential Timeline View")
+            if date_col and num_col:
                 try:
-                    sample_str = df.head(15).to_string(index=False)
-                    summary_prompt = (
-                        f"You are a World-Class Chief Data Analytics Officer. Review this enterprise dataset summary information. "
-                        f"Provide a beautifully structured report using neat markdown bullets. Key areas: Principal Findings, "
-                        f"and Executive Strategic Action Plan. Ingested Data Context:\n{sample_str}"
-                    )
-                    response = model.generate_content(summary_prompt)
-                    st.session_state.auto_summary = response.text
-                except Exception:
-                    st.session_state.auto_summary = f"Automated reporting backup active. Matrix metadata parsed: {len(df.columns)} active variables discovered."
-        
-        st.markdown(st.session_state.auto_summary)
+                    df_time = df.copy()
+                    df_time[date_col] = pd.to_datetime(df_time[date_col])
+                    timeline_data = df_time.groupby(date_col)[num_col].sum()
+                    st.line_chart(timeline_data)
+                except:
+                    st.line_chart(df[num_col].head(100))
+            elif num_col:
+                st.line_chart(df[num_col].head(100))
+            else:
+                st.info("Provide numerical values to map distribution paths.")
 
-        # --- 💬 SUPER-INTELLIGENT DYNAMIC CONVERSATION AGENT ---
-        st.markdown('<div class="section-header">💬 Chat Directly With Your Data Studio</div>', unsafe_allow_html=True)
-        st.markdown("<p style='color:#8b949e; font-size:0.95rem; margin-bottom:1rem;'>Have questions? Our super intelligent data scientist chatbot understands anything you say about this sheet.</p>", unsafe_allow_html=True)
-        
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-            
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        # ---- 3. SENIOR EXECUTIVE AI ANALYST ----
+        st.markdown("---")
+        if st.button("🚀 Run Expert AI Analysis", type="primary"):
+            with st.spinner("Calculating matrices, assessing anomalies, and preparing final report..."):
                 
-        if user_query := st.chat_input("Ask any analytical question or ask to explain rows..."):
-            with st.chat_message("user"):
-                st.markdown(user_query)
-            st.session_state.messages.append({"role": "user", "content": user_query})
-            
-            # Smart context compression so the chat engine knows exactly what the spreadsheet holds
-            summary_stats = df.describe(include='all').to_string()
-            data_matrix_snapshot = df.head(25).to_string() # Sending top rows for direct pattern reading
-            
-            system_context_prompt = (
-                f"SYSTEM INSTRUCTIONS:\n"
-                f"You are a highly capable, human-like Senior Data Scientist and Lead Business Intelligence Consultant. "
-                f"Your goal is to perfectly interpret user messages and provide answers like a smart human analyst. "
-                f"Do not use dry, robotic boilerplate language or repeat static generic sentences. "
-                f"Analyze the user's question explicitly using the dataset context provided below.\n\n"
-                f"DATASET MATRIX PROFILE:\n"
-                f"- Dimensions: {df.shape[0]} rows, {df.shape[1]} columns.\n"
-                f"- Column Names: {', '.join(df.columns.tolist())}\n"
-                f"- Statistical Properties Summary:\n{summary_stats}\n"
-                f"- Target Snapshot Rows (Top Sample Data):\n{data_matrix_snapshot}\n\n"
-                f"User Request: '{user_query}'\n\n"
-                f"Response (Be clear, concise, use clean formatting, state figures if asked, act professional):"
-            )
-            
-            with st.chat_message("assistant"):
-                with st.spinner("AI evaluating query patterns..."):
-                    try:
-                        chat_response = model.generate_content(system_context_prompt)
-                        clean_reply = chat_response.text
-                        st.markdown(clean_reply)
-                        st.session_state.messages.append({"role": "assistant", "content": clean_reply})
-                    except Exception as e:
-                        # Backup dynamic processing row logic if API limits hit unexpectedly
-                        backup_reply = f"I've evaluated the layout parameters. Your dataset contains {df.shape[0]} tracking entities with explicit variables across {df.shape[1]} columns. Please target a specific structural trend column name like {df.columns[0]}!"
-                        st.markdown(backup_reply)
-                        st.session_state.messages.append({"role": "assistant", "content": backup_reply})
-            
-    except Exception as e:
-        st.error(f"Ingestion Error Shield: {str(e)}")
+                data_snapshot = df.to_string(index=False)
+                
+                system_instruction = """
+                You are an Elite Senior Data Analyst and Business Strategy Consultant. 
+                Your task is to draft a comprehensive executive business report.
+                Structure the output beautifully with markdown formatting, bold points, and lists:
+                1. Executive Summary
+                2. Derived Key Performance Indicators
+                3. Identified Trends & Outliers
+                4. Actionable Strategy & Next-Step Recommendations
+                """
+                
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=f"Perform a complete strategic audit on this dataset table:\n\n{data_snapshot}",
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.2
+                    )
+                )
+                
+                st.session_state['saved_public_report'] = response.text
+                st.success("Executive Analysis Generated!")
+                st.markdown(response.text)
 
-else:
-    st.markdown("<div style='text-align: center; margin-top: 4rem; color: #8b949e;'><h3>📥 Core pipeline standby: Awaiting dataset upload...</h3></div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Application Execution Error: {e}")
